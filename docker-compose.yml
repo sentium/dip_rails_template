@@ -1,0 +1,133 @@
+version: '3.7'
+services:
+  dynamo-local-admin:
+    image: instructure/dynamo-local-admin
+    ports:
+      - 8001:8001
+    environment:
+      DYNAMO_ENDPOINT: http://dynamodb:5984
+    depends_on:
+      - dynamo-db-local
+  postgres:
+    image: postgres:11.4
+    volumes:
+      - ./.dockerdev/.psqlrc:/root/.psqlrc:ro
+      - postgres:/var/lib/postgresql/data
+      - ./log:/root/log:cached
+    environment:
+      - PSQL_HISTFILE=/root/log/.psql_history
+    ports:
+      - 5432
+
+
+  dynamo-db-local:
+    container_name: dynamodb
+    build: ./.dockerdev/dynamo-db-local/Dockerfile
+    volumes:
+      - dynamo-db-local:/home/dynamo-db-local/data
+    ports:
+      - "5984:5984"
+    command: "-jar DynamoDBLocal.jar -port 5984 -dbPath ./data -sharedDb"
+  localstack:
+    image: localstack/localstack
+    environment:
+      - SERVICES=s3,sqs,dynamo
+      - DATA_DIR=/tmp/localstack/data
+    ports:
+      - 4567-4578:4567-4578
+      - 8080:8080
+
+  rails-app: &rails-app
+    build:
+      context: .
+      dockerfile: ./.dockerdev/rails-psql/Dockerfile
+      args:
+        RUBY_VERSION: '2.7.1'
+        PG_MAJOR: '11'
+        NODE_MAJOR: '12'
+        YARN_VERSION: '1.13.0'
+        BUNDLER_VERSION: '2.0.2'
+    image: application-name:1.0.0
+    tmpfs:
+      - /tmp
+
+  rails-backend: &rails-backend
+    <<: *rails-app
+    stdin_open: true
+    tty: true
+    volumes:
+      - ./rails:/app:cached
+      - rails_cache:/app/tmp/cache
+      - bundle:/bundle
+      - node_modules:/app/node_modules
+      - packs:/app/public/packs
+      - .dockerdev/.psqlrc:/root/.psqlrc:ro
+    environment:
+      - NODE_ENV=development
+      - RAILS_ENV=${RAILS_ENV:-development}
+      - REDIS_URL=redis://redis:6379/
+      - DATABASE_URL=postgres://postgres:postgres@postgres:5432
+      - BOOTSNAP_CACHE_DIR=/bundle/bootsnap
+      - WEBPACKER_DEV_SERVER_HOST=webpacker
+      - WEB_CONCURRENCY=1
+      - HISTFILE=/app/log/.bash_history
+      - PSQL_HISTFILE=/app/log/.psql_history
+      - EDITOR=vi
+    depends_on:
+      - postgres
+      - dynamo-db-local
+      - localstack
+      # - redis
+
+  runner:
+    <<: *rails-backend
+    command: /bin/bash
+    ports:
+      - '3000:3000'
+      - '3002:3002'
+
+  rails-server:
+    <<: *rails-backend
+    command: bundle exec rails server -b 0.0.0.0
+    ports:
+      - '3000:3000'
+    # depends_on:
+    #   - webpacker
+
+  # sidekiq:
+  #   <<: *backend
+  #   command: bundle exec sidekiq -C config/sidekiq.yml
+
+
+  # redis:
+  #   image: redis:3.2-alpine
+  #   volumes:
+  #     - redis:/data
+  #   ports:
+  #     - 6379
+
+  webpacker:
+    <<: *rails-app
+    command: ./bin/webpack-dev-server
+    ports:
+      - '3035:3035'
+    volumes:
+      - ./rails:/app:cached
+      - bundle:/bundle
+      - node_modules:/app/node_modules
+      - packs:/app/public/packs
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - RAILS_ENV=${RAILS_ENV:-development}
+      - WEBPACKER_DEV_SERVER_HOST=0.0.0.0
+
+volumes:
+  postgres:
+  redis:
+  bundle:
+  node_modules:
+  rails_cache:
+  packs:
+  dynamo-db-local:
+
+  

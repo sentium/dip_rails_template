@@ -1,0 +1,41 @@
+version: '4'
+
+compose:
+  files:
+    - docker-compose.yml
+
+interaction:
+  bash:
+    description: Open the app container bash shell
+    service: rails-app
+    command: /bin/bash
+
+  dev:
+    service: rails-app
+    command: exit
+    subcommands:
+      console:
+        description: Open the gem console
+        command: ./bin/console
+      clean:
+        description: Clean dependencies
+        command: rm -rf Gemfile.lock
+
+  bundle:
+    description: Run Bundler commands
+    service: rails-app
+    command: bundle
+
+  rspec:
+    description: Run Rspec commands
+    service: rails-app
+    command: bundle exec rspec
+
+  rubocop:
+    description: Run Rubocop commands
+    service: rails-app
+    command: bundle exec rubocop
+
+provision:
+  - dip rails-app clean
+  - dip bundle install
