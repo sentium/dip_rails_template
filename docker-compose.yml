@@ -33,9 +33,6 @@ services:
     environment:
       - SERVICES=s3,sqs,dynamo
       - DATA_DIR=/tmp/localstack/data
-    ports:
-      - 4567-4578:4567-4578
-      - 8080:8080
 
   rails-app: &rails-app
     build:
@@ -67,6 +64,7 @@ services:
       - RAILS_ENV=${RAILS_ENV:-development}
       - REDIS_URL=redis://redis:6379/
       - DATABASE_URL=postgres://postgres:postgres@postgres:5432
+      - DYNAMO_URL=http://dynamodb:5984
       - BOOTSNAP_CACHE_DIR=/bundle/bootsnap
       - WEBPACKER_DEV_SERVER_HOST=webpacker
       - WEB_CONCURRENCY=1
@@ -77,6 +75,7 @@ services:
       - postgres
       - dynamo-db-local
       - localstack
+      - webpacker
       # - redis
 
   runner:
