@@ -23,16 +23,16 @@ interaction:
   rake:
     description: Run rake command
     service: rails-backend
-    command: bundle exec rake
+    command: rake
 
   rails:
     description: Run rails command
     service: rails-backend
-    command: bundle exec rails
+    command: rails
     subcommands:
       s:
         description: Start rails server
-        service: rails-app
+        service: rails-server
         compose_run_options: [service-ports]
 
   yarn:
@@ -45,18 +45,18 @@ interaction:
     service: rails-backend
     environment:
       RAILS_ENV: test
-    command: bundle exec rails test
+    command: rails test
 
   cop:
     description: Run rubocop
     service: rails-backend
     default_args: -a
-    command: bundle exec rubocop
+    command: rubocop
 
   psql:
     description: Run psql console
     service: postgres
-    command: psql -h postgres -U postgres -d postgres
+    command: psql -h localhost -U postgres -d postgres
 
   inspect_all:
     description: Run all checkers
@@ -68,8 +68,10 @@ interaction:
     command: bundle exec brakeman
 
 provision:
+  - dip compose down --volumes
+  - dip compose build
   - dip compose up -d postgres
+  - dip bundle install
+  - dip rake db:setup
   - dip yarn install
-  - dip sh -c "./bin/setup 2> /dev/null; exit 0"
-  - dip sh -c ./bin/setup
-  - dip sh -c "RAILS_ENV=test ./bin/setup"
+
